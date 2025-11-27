@@ -27,7 +27,7 @@ export class GitHubService {
       owner: this.owner,
       repo: this.repo,
     });
-    const defaultBranch = repoData.default_branch;
+    const defaultBranch = repoData.default_branch || "main";
 
     // Try to get the latest commit SHA, or handle empty repo
     let baseTreeSha: string | null = null;
@@ -48,11 +48,16 @@ export class GitHubService {
       });
       baseTreeSha = commitData.tree.sha;
     } catch (error: unknown) {
-      // Repository is empty, we'll create the first commit
-      const err = error as { status?: number };
-      if (err.status !== 404) {
+      // Repository is empty or branch doesn't exist, we'll create the first commit
+      const err = error as { status?: number; message?: string };
+      const isEmptyRepoError =
+        err.status === 404 ||
+        err.status === 409 ||
+        (typeof err.message === "string" && err.message.includes("empty"));
+      if (!isEmptyRepoError) {
         throw error;
       }
+      // For empty repos, parentSha and baseTreeSha remain null
     }
 
     // Create blobs for each file

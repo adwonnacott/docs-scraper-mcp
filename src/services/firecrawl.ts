@@ -2,8 +2,18 @@
  * Firecrawl API client for crawling documentation sites
  */
 
+interface Action {
+  type: "wait" | "click" | "scroll" | "screenshot" | "executeJavascript";
+  milliseconds?: number;
+  selector?: string;
+  direction?: "up" | "down";
+  script?: string;
+}
+
 interface CrawlOptions {
   limit?: number;
+  waitFor?: number;
+  actions?: Action[];
 }
 
 interface PageData {
@@ -31,6 +41,24 @@ export class FirecrawlService {
 
   async crawl(url: string, options: CrawlOptions = {}): Promise<PageData[]> {
     const limit = options.limit ?? 100;
+    const waitFor = options.waitFor ?? 0;
+    const actions = options.actions ?? [];
+
+    // Build scrapeOptions
+    const scrapeOptions: Record<string, unknown> = {
+      formats: ["markdown"],
+      onlyMainContent: true,
+    };
+
+    // Add waitFor if specified
+    if (waitFor > 0) {
+      scrapeOptions.waitFor = waitFor;
+    }
+
+    // Add actions if specified
+    if (actions.length > 0) {
+      scrapeOptions.actions = actions;
+    }
 
     // Start crawl job
     const startResponse = await fetch(`${this.baseUrl}/crawl`, {
@@ -42,10 +70,7 @@ export class FirecrawlService {
       body: JSON.stringify({
         url,
         limit,
-        scrapeOptions: {
-          formats: ["markdown"],
-          onlyMainContent: true,
-        },
+        scrapeOptions,
       }),
     });
 

@@ -51,7 +51,7 @@ server.tool(
     try {
       const result = await scrapeDocs(
         url,
-        limit ?? 100,
+        { limit: limit ?? 100 },
         FIRECRAWL_API_KEY!,
         GITHUB_TOKEN!,
         GITHUB_REPO!
@@ -74,6 +74,78 @@ Use list_docs to see all scraped documentation, or get_doc to retrieve specific 
       const message = error instanceof Error ? error.message : String(error);
       return {
         content: [{ type: "text" as const, text: `Error scraping docs: ${message}` }],
+        isError: true,
+      };
+    }
+  }
+);
+
+// Register scrape_spa tool for JavaScript-heavy sites
+server.tool(
+  "scrape_spa",
+  "Scrape a JavaScript-heavy SPA/single-page application. Uses waitFor and actions to let JS render before scraping. Good for Stoplight, React, Vue, Angular docs.",
+  {
+    url: z.string().url().describe("The URL to scrape"),
+    limit: z.number().min(1).max(500).default(100).describe("Maximum number of pages to scrape (default: 100)"),
+    waitFor: z.number().min(0).max(30000).default(5000).describe("Milliseconds to wait for JS to render (default: 5000)"),
+    clickSelector: z.string().optional().describe("Optional CSS selector to click before scraping (e.g., 'nav a' to expand navigation)"),
+    scrollToBottom: z.boolean().default(false).describe("Scroll to bottom of page before scraping to trigger lazy loading"),
+  },
+  async ({ url, limit, waitFor, clickSelector, scrollToBottom }) => {
+    try {
+      // Build actions array for SPA handling
+      const actions: Array<{
+        type: "wait" | "click" | "scroll";
+        milliseconds?: number;
+        selector?: string;
+        direction?: "up" | "down";
+      }> = [];
+
+      // Initial wait for JS to load
+      actions.push({ type: "wait", milliseconds: waitFor ?? 5000 });
+
+      // Optional: click to expand navigation
+      if (clickSelector) {
+        actions.push({ type: "click", selector: clickSelector });
+        actions.push({ type: "wait", milliseconds: 1000 });
+      }
+
+      // Optional: scroll to trigger lazy loading
+      if (scrollToBottom) {
+        actions.push({ type: "scroll", direction: "down" });
+        actions.push({ type: "wait", milliseconds: 2000 });
+      }
+
+      const result = await scrapeDocs(
+        url,
+        {
+          limit: limit ?? 100,
+          waitFor: waitFor ?? 5000,
+          actions,
+        },
+        FIRECRAWL_API_KEY!,
+        GITHUB_TOKEN!,
+        GITHUB_REPO!
+      );
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Successfully scraped ${result.pageCount} pages from ${result.domain} (SPA mode)
+
+Local path: ${result.localPath}
+GitHub: ${result.githubUrl}
+
+Used: waitFor=${waitFor ?? 5000}ms, ${actions.length} actions
+Use list_docs to see all scraped documentation, or get_doc to retrieve specific pages.`,
+          },
+        ],
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        content: [{ type: "text" as const, text: `Error scraping SPA: ${message}` }],
         isError: true,
       };
     }

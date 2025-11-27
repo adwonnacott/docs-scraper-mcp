@@ -9,6 +9,20 @@ import { GitHubService } from "../services/github.js";
 
 const DOCS_DIR = path.join(process.env.HOME ?? "~", "scraped-docs");
 
+interface Action {
+  type: "wait" | "click" | "scroll" | "screenshot" | "executeJavascript";
+  milliseconds?: number;
+  selector?: string;
+  direction?: "up" | "down";
+  script?: string;
+}
+
+interface ScrapeOptions {
+  limit: number;
+  waitFor?: number;
+  actions?: Action[];
+}
+
 interface ScrapeResult {
   domain: string;
   pageCount: number;
@@ -46,7 +60,7 @@ function urlToFilename(sourceUrl: string, baseUrl: string): string {
 
 export async function scrapeDocs(
   url: string,
-  limit: number,
+  options: ScrapeOptions,
   firecrawlApiKey: string,
   githubToken: string,
   githubRepo: string
@@ -55,8 +69,14 @@ export async function scrapeDocs(
   const github = new GitHubService(githubToken, githubRepo);
 
   // Crawl the site
-  console.error(`Starting crawl of ${url} with limit ${limit}...`);
-  const pages = await firecrawl.crawl(url, { limit });
+  console.error(`Starting crawl of ${url} with limit ${options.limit}...`);
+  if (options.waitFor) {
+    console.error(`Using waitFor: ${options.waitFor}ms`);
+  }
+  if (options.actions && options.actions.length > 0) {
+    console.error(`Using ${options.actions.length} actions for SPA support`);
+  }
+  const pages = await firecrawl.crawl(url, options);
   console.error(`Crawl complete. Found ${pages.length} pages.`);
 
   const domain = urlToDomain(url);
