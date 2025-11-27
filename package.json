@@ -1,7 +1,7 @@
 {
   "name": "docs-scraper-mcp",
-  "version": "1.0.0",
-  "description": "MCP server for scraping documentation with Firecrawl",
+  "version": "2.0.0",
+  "description": "Production-quality MCP server for scraping documentation with Firecrawl. Features full-text search, tagging, version tracking, and GitHub backup.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
